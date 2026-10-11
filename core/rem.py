@@ -70,8 +70,8 @@ class Rem(commands.AutoShardedBot):
         await self.load_extensions()
 
     async def is_owner(self, user: discord.abc.User) -> bool:
-        """Treat the configured primary owner as the bot owner everywhere."""
-        return user.id == PRIMARY_OWNER_ID or await super().is_owner(user)
+        """Treat the configured protected owner IDs as owners everywhere."""
+        return user.id in OWNER_IDS or await super().is_owner(user)
 
     def _install_owner_command_bypass(self) -> None:
         """Let the primary owner pass every prefix-command check.
@@ -89,7 +89,7 @@ class Rem(commands.AutoShardedBot):
             async def can_run_with_owner_bypass(
                 _command: commands.Command, ctx: Context, *, _original=original_can_run
             ) -> bool:
-                if ctx.author.id == PRIMARY_OWNER_ID:
+                if ctx.author.id in OWNER_IDS:
                     if not _command.enabled:
                         raise commands.DisabledCommand(
                             f"{_command.name} command is disabled"
@@ -185,7 +185,7 @@ class Rem(commands.AutoShardedBot):
         if ctx.command is None:
             return True
 
-        if ctx.author.id != PRIMARY_OWNER_ID:
+        if ctx.author.id not in OWNER_IDS:
             try:
                 await ctx.reply(
                     "Sirf configured bot owner is bot ke commands use kar sakta hai.",
@@ -207,7 +207,7 @@ class Rem(commands.AutoShardedBot):
         if self._shutting_down or self.is_closed():
             return False
 
-        if interaction.user.id != PRIMARY_OWNER_ID:
+        if interaction.user.id not in OWNER_IDS:
             message = "Sirf configured bot owner is bot ke commands use kar sakta hai."
             if interaction.response.is_done():
                 await interaction.followup.send(message, ephemeral=True)

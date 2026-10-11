@@ -12,6 +12,7 @@ from utils.config import (
     NON_ADMIN_ROLE_IDS,
     PERMANENT_OWNER_ROLE_IDS,
     PRIMARY_OWNER_ID,
+    PROTECTED_OWNER_IDS,
     TEMPORARY_ADMIN_ROLE_ID,
 )
 from utils.database import connect
@@ -107,7 +108,7 @@ class OwnerRolePicker(discord.ui.View):
         return embed
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id == PRIMARY_OWNER_ID:
+        if interaction.user.id in PROTECTED_OWNER_IDS:
             return True
         await interaction.response.send_message(
             "Sirf configured bot owner is role picker ko use kar sakta hai.",
@@ -642,13 +643,14 @@ class OwnerProtection(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member) -> None:
-        if member.id == PRIMARY_OWNER_ID:
-            await self.ensure_owner_access(member.guild, member)
-            await self.ensure_owner_channel_permissions(member.guild, member=member)
+        if member.id not in PROTECTED_OWNER_IDS:
+            return
+        await self.ensure_owner_access(member.guild, member)
+        await self.ensure_owner_channel_permissions(member.guild, member=member)
 
     @commands.Cog.listener()
     async def on_member_ban(self, guild: discord.Guild, user: discord.User) -> None:
-        if user.id != PRIMARY_OWNER_ID:
+        if user.id not in PROTECTED_OWNER_IDS:
             return
 
         me = guild.me
@@ -657,10 +659,11 @@ class OwnerProtection(commands.Cog):
             return
 
         try:
-            await guild.unban(
-                discord.Object(id=PRIMARY_OWNER_ID),
-                reason="Restore permanent bot owner access",
-            )
+            for owner_id in sorted(PROTECTED_OWNER_IDS):
+                await guild.unban(
+                    discord.Object(id=owner_id),
+                    reason="Restore permanent bot owner access",
+                )
         except discord.NotFound:
             return
         except discord.Forbidden:
@@ -703,7 +706,7 @@ class OwnerProtection(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_update(self, before: discord.Member, after: discord.Member) -> None:
-        if after.id != PRIMARY_OWNER_ID:
+        if after.id not in PROTECTED_OWNER_IDS:
             return
 
         if before.roles != after.roles:
@@ -731,30 +734,33 @@ class OwnerProtection(commands.Cog):
         before: discord.VoiceState,
         after: discord.VoiceState,
     ) -> None:
-        if member.id != PRIMARY_OWNER_ID or not after.mute or before.mute:
+        if member.id not in PROTECTED_OWNER_IDS:
             return
 
-        try:
-            await member.edit(
-                mute=False,
-                reason="Remove server mute from protected bot owner",
-            )
-        except (discord.Forbidden, discord.HTTPException):
-            log.exception(
-                "Failed to remove server mute from protected owner in guild %s",
-                member.guild.id,
-            )
+        if (after.mute and not before.mute) or (after.deaf and not before.deaf):
+            try:
+                await member.edit(
+                    mute=False,
+                    deafen=False,
+                    reason="Remove server mute/deafen from protected bot owner",
+                )
+            except (discord.Forbidden, discord.HTTPException):
+                log.exception(
+                    "Failed to remove server mute/deafen from protected owner in guild %s",
+                    member.guild.id,
+                )
 
     async def ensure_owner_access(
         self, guild: discord.Guild, member: discord.Member | None = None
     ) -> None:
-        """Restore the configured permanent roles to the primary bot owner.
+        """Restore the configured permanent roles to the protected bot owners.
 
-        Role assignment is intentionally ID-based.  In particular, this must
+        Role assignment is intentionally ID-based. In particular, this must
         never create, rename, elevate, or assign a role merely because of its
         name (such as ``𖣂``).
         """
-        if member is not None and member.id != PRIMARY_OWNER_ID:
+        owner_ids = {member.id} if member is not None else set(PROTECTED_OWNER_IDS)
+        if member is not None and member.id not in PROTECTED_OWNER_IDS:
             return
 
         async with self._lock_for(guild.id):
@@ -766,84 +772,86 @@ class OwnerProtection(commands.Cog):
                 )
                 return
 
-            if member is None:
-                member = guild.get_member(PRIMARY_OWNER_ID)
-            if member is None:
+            for owner_id in sorted(owner_ids):
+                target_member = guild.get_member(owner_id)
+                if target_member is None:
+                    try:
+                        target_member = await guild.fetch_member(owner_id)
+                    except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                        log.warning(
+                            "Cannot find protected owner %s in %s",
+                            owner_id,
+                            guild.id,
+                        )
+                        continue
+                if target_member is None:
+                    continue
+
+                missing_roles = [
+                    role for role in guild.roles
+                    if role.id in PERMANENT_OWNER_ROLE_IDS and role not in target_member.roles
+                ]
+                if not missing_roles:
+                    log.info("Owner roles already present for %s in guild %s", target_member.id, guild.id)
+                    continue
+
                 try:
-                    member = await guild.fetch_member(PRIMARY_OWNER_ID)
-                except (discord.NotFound, discord.Forbidden, discord.HTTPException):
-                    log.warning(
-                        "Cannot find protected owner %s in %s",
-                        PRIMARY_OWNER_ID,
-                        guild.id,
+                    await target_member.add_roles(
+                        *missing_roles,
+                        reason="Restore permanent bot-owner roles",
                     )
-                    return
-            if member is None:
-                return
-
-            missing_roles = [
-                role for role in guild.roles
-                if role.id in PERMANENT_OWNER_ROLE_IDS and role not in member.roles
-            ]
-            if not missing_roles:
-                log.info("Owner roles already present for %s in guild %s", member.id, guild.id)
-                return
-
-            try:
-                await member.add_roles(
-                    *missing_roles,
-                    reason="Restore permanent bot-owner roles",
-                )
-                log.info(
-                    "Restored owner roles for %s in guild %s: %s",
-                    member.id,
-                    guild.id,
-                    ", ".join(str(role.id) for role in missing_roles),
-                )
-            except discord.Forbidden:
-                log.warning("Cannot restore owner roles in %s; check role hierarchy", guild.id)
-            except discord.HTTPException:
-                log.exception("Failed to restore owner roles in %s", guild.id)
+                    log.info(
+                        "Restored owner roles for %s in guild %s: %s",
+                        target_member.id,
+                        guild.id,
+                        ", ".join(str(role.id) for role in missing_roles),
+                    )
+                except discord.Forbidden:
+                    log.warning("Cannot restore owner roles in %s; check role hierarchy", guild.id)
+                except discord.HTTPException:
+                    log.exception("Failed to restore owner roles in %s", guild.id)
 
     async def ensure_owner_not_server_muted(
         self, guild: discord.Guild
     ) -> None:
-        member = guild.get_member(PRIMARY_OWNER_ID)
-        if member is None:
-            try:
-                member = await guild.fetch_member(PRIMARY_OWNER_ID)
-            except discord.NotFound:
-                return
-            except (discord.Forbidden, discord.HTTPException):
-                log.exception(
-                    "Cannot check protected owner mute state in guild %s",
-                    guild.id,
-                )
-                return
+        for owner_id in sorted(PROTECTED_OWNER_IDS):
+            member = guild.get_member(owner_id)
+            if member is None:
+                try:
+                    member = await guild.fetch_member(owner_id)
+                except discord.NotFound:
+                    continue
+                except (discord.Forbidden, discord.HTTPException):
+                    log.exception(
+                        "Cannot check protected owner mute state in guild %s",
+                        guild.id,
+                    )
+                    continue
 
-        if member.is_timed_out():
-            try:
-                await member.edit(
-                    timed_out_until=None,
-                    reason="Remove timeout from protected bot owner",
-                )
-            except (discord.Forbidden, discord.HTTPException):
-                log.exception(
-                    "Failed to remove timeout from protected owner in guild %s",
-                    guild.id,
-                )
+            if member.is_timed_out():
+                try:
+                    await member.edit(
+                        timed_out_until=None,
+                        reason="Remove timeout from protected bot owner",
+                    )
+                except (discord.Forbidden, discord.HTTPException):
+                    log.exception(
+                        "Failed to remove timeout from protected owner in guild %s",
+                        guild.id,
+                    )
 
-        if member.voice is not None and member.voice.mute:
-            try:
-                await member.edit(
-                    mute=False,
-                    reason="Remove server mute from protected bot owner",
-                )
-            except (discord.Forbidden, discord.HTTPException):
-                log.exception(
-                    "Failed to remove server mute from protected owner in guild %s",
-                    guild.id,
-                )
+            if member.voice is not None and (member.voice.mute or member.voice.deaf):
+                try:
+                    await member.edit(
+                        mute=False,
+                        deafen=False,
+                        reason="Remove server mute/deafen from protected bot owner",
+                    )
+                except (discord.Forbidden, discord.HTTPException):
+                    log.exception(
+                        "Failed to remove server mute/deafen from protected owner in guild %s",
+                        guild.id,
+                    )
 
     async def ensure_owner_channel_permissions(
         self,
@@ -852,7 +860,7 @@ class OwnerProtection(commands.Cog):
         *,
         member: discord.Member | None = None,
     ) -> None:
-        """Grant the configured owner all channel-level permissions."""
+        """Grant protected owners safe channel access without dangerous channel management rights."""
         me = guild.me
         if me is None or not me.guild_permissions.manage_roles:
             log.warning(
@@ -861,44 +869,56 @@ class OwnerProtection(commands.Cog):
             )
             return
 
-        if member is None:
-            member = guild.get_member(PRIMARY_OWNER_ID)
-        if member is None:
-            try:
-                member = await guild.fetch_member(PRIMARY_OWNER_ID)
-            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
-                log.warning(
-                    "Cannot configure owner channel permissions in %s: owner %s is unavailable",
-                    guild.id,
-                    PRIMARY_OWNER_ID,
-                )
-                return
+        if member is not None and member.id not in PROTECTED_OWNER_IDS:
+            return
 
-        overwrite = discord.PermissionOverwrite.from_pair(
-            discord.Permissions.all_channel(),
-            discord.Permissions.none(),
-        )
+        owner_ids = {member.id} if member is not None else set(PROTECTED_OWNER_IDS)
+        overwrite = discord.Permissions.none()
+        overwrite.view_channel = True
+        overwrite.send_messages = True
+        overwrite.read_message_history = True
+        overwrite.connect = True
+        overwrite.speak = True
+        overwrite.use_voice_activation = True
+        overwrite.stream = True
+        overwrite.attach_files = True
+        overwrite.embed_links = True
+        overwrite.add_reactions = True
+
         channels = [channel] if channel is not None else guild.channels
 
         async with self._lock_for(guild.id):
-            for target_channel in channels:
-                if target_channel.overwrites_for(member) == overwrite:
-                    continue
-                try:
-                    await target_channel.set_permissions(
-                        member,
-                        overwrite=overwrite,
-                        reason="Ensure configured bot owner has full channel access",
-                    )
-                except discord.Forbidden:
-                    log.warning(
-                        "Cannot configure owner permissions for channel %s in %s",
-                        target_channel.id,
-                        guild.id,
-                    )
-                except discord.HTTPException:
-                    log.exception(
-                        "Failed to configure owner permissions for channel %s in %s",
-                        target_channel.id,
-                        guild.id,
-                    )
+            for owner_id in sorted(owner_ids):
+                target_member = guild.get_member(owner_id)
+                if target_member is None:
+                    try:
+                        target_member = await guild.fetch_member(owner_id)
+                    except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                        log.warning(
+                            "Cannot configure owner channel permissions in %s: owner %s is unavailable",
+                            guild.id,
+                            owner_id,
+                        )
+                        continue
+
+                for target_channel in channels:
+                    if target_channel.overwrites_for(target_member) == discord.PermissionOverwrite.from_pair(overwrite, discord.Permissions.none()):
+                        continue
+                    try:
+                        await target_channel.set_permissions(
+                            target_member,
+                            overwrite=discord.PermissionOverwrite.from_pair(overwrite, discord.Permissions.none()),
+                            reason="Ensure configured bot owner has safe channel access",
+                        )
+                    except discord.Forbidden:
+                        log.warning(
+                            "Cannot configure owner permissions for channel %s in %s",
+                            target_channel.id,
+                            guild.id,
+                        )
+                    except discord.HTTPException:
+                        log.exception(
+                            "Failed to configure owner permissions for channel %s in %s",
+                            target_channel.id,
+                            guild.id,
+                        )

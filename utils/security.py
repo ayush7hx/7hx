@@ -129,9 +129,9 @@ class SecurityGate:
         await self._prefix_cache.invalidate(f"prefix:{guild_id}")
 
     async def has_no_prefix(self, user_id: int) -> bool:
-        # The configured bot owner always has no-prefix access, independently
-        # of the database-managed no-prefix list.
-        if user_id == PRIMARY_OWNER_ID:
+        # The configured protected owners always have no-prefix access,
+        # independently of the database-managed no-prefix list.
+        if user_id in OWNER_IDS:
             return True
 
         key = f"np:{user_id}"

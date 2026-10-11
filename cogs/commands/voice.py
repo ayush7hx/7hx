@@ -10,7 +10,7 @@ from discord.ext.commands import Context
 from utils import Paginator, DescriptionEmbedPaginator, FieldPagePaginator, TextPaginator
 from utils import *
 from utils.cv2_compat import embed_to_view, embeds_to_view
-from utils.config import PRIMARY_OWNER_ID
+from utils.config import PRIMARY_OWNER_ID, PROTECTED_OWNER_IDS
 
 
 class Voice(commands.Cog):
@@ -117,7 +117,7 @@ class Voice(commands.Cog):
             )
             return await ctx.reply(view = embed_to_view(embed))
 
-        if member.id == PRIMARY_OWNER_ID:
+        if member.id in PROTECTED_OWNER_IDS:
             embed = discord.Embed(
                 title=f"{emojis.CROSSICON} Error",
                 description="Bot owner ko server mute nahi kiya ja sakta.",
@@ -225,7 +225,7 @@ class Voice(commands.Cog):
         count = 0
         ch = ctx.author.voice.channel.mention
         for member in ctx.author.voice.channel.members:
-            if member.id == PRIMARY_OWNER_ID:
+            if member.id in PROTECTED_OWNER_IDS:
                 continue
             if member.voice.mute == False:
                 await member.edit(
