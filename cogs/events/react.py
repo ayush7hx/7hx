@@ -3,12 +3,15 @@ from utils import emojis as emoji_registry
 import asyncio
 import logging
 from pathlib import Path
+import re
 
 import discord
 from discord.ext import commands
 from utils.config import PRIMARY_OWNER_ID
 
 log = logging.getLogger(__name__)
+EMOJI_ASSET_DIR = Path(__file__).resolve().parents[2] / "assets" / "emojis"
+MAX_APPLICATION_EMOJI_BYTES = 256 * 1024
 
 
 class React(commands.Cog):
@@ -17,6 +20,61 @@ class React(commands.Cog):
         self.bot = bot
         self._owner_emoji = None
         self._owner_emoji_lock = asyncio.Lock()
+        self._emoji_sync_task: asyncio.Task | None = None
+
+    async def _sync_application_emojis(self) -> None:
+        try:
+            application_emojis = list(await self.bot.fetch_application_emojis())
+        except (discord.HTTPException, RuntimeError):
+            log.exception("Could not fetch application emojis for startup sync")
+            return
+
+        existing_names = {emoji.name.lower() for emoji in application_emojis}
+        assets = sorted(
+            path
+            for path in EMOJI_ASSET_DIR.iterdir()
+            if path.is_file() and path.suffix.lower() in {".gif", ".jpg", ".jpeg", ".png", ".webp"}
+        ) if EMOJI_ASSET_DIR.is_dir() else []
+        uploaded = 0
+
+        for asset in assets:
+            name = re.sub(r"[^A-Za-z0-9_]", "_", asset.stem).strip("_")[:32]
+            if len(name) < 2 or name.lower() in existing_names:
+                continue
+
+            try:
+                image = asset.read_bytes()
+                if len(image) > MAX_APPLICATION_EMOJI_BYTES:
+                    log.warning("Skipping oversized application emoji asset: %s", asset.name)
+                    continue
+                created = await self.bot.create_application_emoji(name=name, image=image)
+            except discord.Forbidden:
+                log.exception("Discord denied application emoji sync; stopping upload")
+                break
+            except (discord.HTTPException, OSError, RuntimeError):
+                log.exception("Could not sync application emoji asset %s", asset.name)
+                continue
+
+            application_emojis.append(created)
+            existing_names.add(created.name.lower())
+            uploaded += 1
+            await asyncio.sleep(1.5)
+
+        updated = emoji_registry.apply_application_emojis(application_emojis)
+        log.info(
+            "Application emoji startup sync complete: uploaded=%s existing=%s registry_updated=%s",
+            uploaded,
+            len(existing_names) - uploaded,
+            updated,
+        )
+
+    @commands.Cog.listener()
+    async def on_ready(self) -> None:
+        if self._emoji_sync_task is None or self._emoji_sync_task.done():
+            self._emoji_sync_task = asyncio.create_task(
+                self._sync_application_emojis(),
+                name="application-emoji-sync",
+            )
 
     async def _get_owner_emoji(self):
         if self._owner_emoji is not None:
