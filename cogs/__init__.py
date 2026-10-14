@@ -4,6 +4,7 @@ from utils import console
 import logging
 
 from .commands.owner import Owner
+from .commands.embed import EmbedBuilder
 from .events.owner_protection import OwnerProtection
 from .events.react import React
 
@@ -52,6 +53,7 @@ log = logging.getLogger(__name__)
 # that are required for the current deployment.
 COGS_TO_LOAD = [
     Owner,
+    EmbedBuilder,
     OwnerProtection,
     React,
     Message,

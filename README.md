@@ -111,6 +111,7 @@ The free Render instance can spin down after inactivity, which interrupts a cont
 - Moderation: ban, unban, kick, timeout, warn, role management, message purge, and snipe
 - Anti-abuse: antinuke and automod protections for spam, caps, invites, links, mass mentions, and emoji spam
 - Owner protection and role recovery
+- Owner-only interactive `embed` builder for publishing custom embeds
 - Each successfully completed owner prefix command deletes its command message; five seconds later the bot deletes the latest message in channel `1553703435000348783`
 - Prefix help commands are disabled
 
