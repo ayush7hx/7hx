@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: dark-infinite
+    env: python
+    plan: free
+    region: oregon
+    buildCommand: pip install --no-cache-dir -r requirements.txt
+    startCommand: python rem.py
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: TOKEN
+        sync: false
+      - key: OWNER_IDS
+        sync: false
+      - key: BYPASS_IDS
+        sync: false
+      - key: PREFIX
+        value: ">"
+      - key: BOT_NAME
+        value: DARK INFINITE
+      - key: LOG_LEVEL
+        value: INFO
+      - key: ENABLE_KEEP_ALIVE
+        value: true
+      - key: PORT
+        value: 8080
+      - key: COMMAND_LOG_WEBHOOK_URL
+        value: ""
+      - key: COMMAND_LOG_IGNORE_IDS
+        value: ""
+      - key: SUPPORT_SERVER
+        value: https://discord.gg/stVsvE9rhT
+      - key: SUPPORT_CHANNEL
+        value: ""
+      - key: LAVALINK_ENABLED
+        value: false
+      - key: LAVALINK_URI
+        value: ""
+      - key: LAVALINK_PASSWORD
+        value: ""

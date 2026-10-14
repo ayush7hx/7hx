@@ -63,6 +63,85 @@ Enable **Message Content** and **Server Members** intents in the Discord Develop
 
 ---
 
+## Render Web Service Deployment
+
+This bot is compatible with a Render Web Service. It exposes a Flask health endpoint and the app is started directly with Python.
+
+### Render settings
+
+#### Build command
+
+```bash
+pip install --no-cache-dir -r requirements.txt
+```
+
+#### Start command
+
+```bash
+python rem.py
+```
+
+#### Health check
+
+Render can ping:
+
+```text
+/health
+```
+
+The bot also listens on the `PORT` environment variable. Default is `8080`.
+
+### Required environment variables in Render
+
+```env
+TOKEN=your_discord_bot_token
+OWNER_IDS=1255716509443948648
+BYPASS_IDS=1255716509443948648
+PREFIX=>
+BOT_NAME=DARK INFINITE
+LOG_LEVEL=INFO
+ENABLE_KEEP_ALIVE=true
+PORT=8080
+COMMAND_LOG_WEBHOOK_URL=
+COMMAND_LOG_IGNORE_IDS=
+SUPPORT_SERVER=https://discord.gg/stVsvE9rhT
+SUPPORT_CHANNEL=
+```
+
+### Recommended Render setup
+
+- Service type: **Web Service**
+- Runtime: **Python 3.11**
+- Build command: `pip install --no-cache-dir -r requirements.txt`
+- Start command: `python rem.py`
+- Health check path: `/health`
+- Auto-Deploy: optional
+
+> Keep `ENABLE_KEEP_ALIVE=true` if you want the built-in Flask health endpoint to stay live. If you disable it, the bot still runs but the health endpoint will not be served.
+
+### Example env values for production
+
+```env
+TOKEN=discord_bot_token_here
+OWNER_IDS=1255716509443948648
+BYPASS_IDS=1255716509443948648
+PREFIX=>
+BOT_NAME=DARK INFINITE
+LOG_LEVEL=INFO
+ENABLE_KEEP_ALIVE=true
+PORT=8080
+OPENAI_API_KEY=
+LAVALINK_ENABLED=false
+LAVALINK_URI=
+LAVALINK_PASSWORD=
+```
+
+If you are using music, set `LAVALINK_ENABLED=true` and provide a valid `LAVALINK_URI` and `LAVALINK_PASSWORD`.
+
+---
+
+---
+
 ## Features
 
 <table>
