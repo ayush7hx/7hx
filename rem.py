@@ -273,16 +273,44 @@ def _register_signal_handlers(loop: asyncio.AbstractEventLoop) -> None:
 
 async def _run_bot() -> None:
     await client.load_extension("jishaku")
+    retry_count = 0
     while not client.is_closed() and not client._shutting_down:
         try:
             await client.start(TOKEN)
         except asyncio.CancelledError:
             raise
-        except Exception:
-            log.exception("Discord client stopped with an error")
+        except Exception as exc:
             if client._shutting_down:
                 return
-            await asyncio.sleep(5)
+
+            is_rate_limited = isinstance(exc, discord.HTTPException) and exc.status == 429
+            is_cloudflare_block = is_rate_limited and "cloudflare" in str(exc).lower()
+            if is_cloudflare_block:
+                retry_delay = 900
+                log.warning(
+                    "Discord login is blocked by Cloudflare (HTTP 429); retrying in %s seconds",
+                    retry_delay,
+                )
+            elif is_rate_limited:
+                retry_delay = min(60 * (2 ** retry_count), 900)
+                log.warning(
+                    "Discord login was rate limited (HTTP 429); retrying in %s seconds",
+                    retry_delay,
+                )
+            else:
+                retry_delay = min(30 * (2 ** retry_count), 900)
+                log.exception(
+                    "Discord client stopped with an error; retrying in %s seconds",
+                    retry_delay,
+                )
+
+            try:
+                await client.http.close()
+            except Exception:
+                log.exception("Could not close Discord HTTP session after startup failure")
+
+            retry_count += 1
+            await asyncio.sleep(retry_delay)
         else:
             if client._shutting_down:
                 return
