@@ -45,6 +45,7 @@ class Rem(commands.AutoShardedBot):
             intents=intents,
             status=discord.Status.online,
             strip_after_prefix=True,
+            help_command=None,
             owner_ids=OWNER_IDS,
             allowed_mentions=discord.AllowedMentions(
                 everyone=False, replied_user=False, roles=False

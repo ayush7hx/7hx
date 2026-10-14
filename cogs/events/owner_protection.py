@@ -16,7 +16,6 @@ from utils.config import (
     TEMPORARY_ADMIN_ROLE_ID,
 )
 from utils.database import connect
-from utils.sensitive_commands import SENSITIVE_OWNER_COMMANDS
 
 log = logging.getLogger(__name__)
 _TEMPORARY_ROLE_DATABASE = "owner_protection.db"
@@ -333,9 +332,6 @@ class OwnerProtection(commands.Cog):
     @commands.guild_only()
     @commands.is_owner()
     async def getadmin(self, ctx: commands.Context) -> None:
-        if not await self._delete_sensitive_command(ctx):
-            return
-
         guild = ctx.guild
         me = guild.me
         if me is None or not me.guild_permissions.manage_roles:
@@ -524,9 +520,6 @@ class OwnerProtection(commands.Cog):
     @commands.guild_only()
     @commands.is_owner()
     async def getroll(self, ctx: commands.Context) -> None:
-        if not await self._delete_sensitive_command(ctx):
-            return
-
         me = ctx.guild.me
         if me is None or not me.guild_permissions.manage_roles:
             await ctx.send("Bot ko **Manage Roles** permission chahiye.")
@@ -555,9 +548,6 @@ class OwnerProtection(commands.Cog):
     async def manageroll(
         self, ctx: commands.Context, member: discord.Member
     ) -> None:
-        if not await self._delete_sensitive_command(ctx):
-            return
-
         me = ctx.guild.me
         if me is None or not me.guild_permissions.manage_roles:
             await ctx.send("Bot ko **Manage Roles** permission chahiye.")
@@ -583,26 +573,6 @@ class OwnerProtection(commands.Cog):
             f"Managing roles for {member.mention}.\n{embed.description}"
         )
         view.message = await ctx.send(view=embed_to_view(embed, view))
-
-    async def _delete_sensitive_command(self, ctx: commands.Context) -> bool:
-        if ctx.command is None or ctx.command.qualified_name not in SENSITIVE_OWNER_COMMANDS:
-            return True
-
-        try:
-            await ctx.message.delete()
-        except (discord.Forbidden, discord.HTTPException):
-            log.exception(
-                "Failed to delete sensitive owner command %s in guild %s",
-                ctx.command.qualified_name,
-                ctx.guild.id if ctx.guild else None,
-            )
-            await ctx.send(
-                "Safety ke liye command cancel kiya: bot command message delete nahi kar saka. "
-                "Bot ko **Manage Messages** permission dein."
-            )
-            return False
-
-        return True
 
     @commands.Cog.listener()
     async def on_guild_role_update(

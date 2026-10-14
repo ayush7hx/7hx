@@ -5,35 +5,31 @@
 <h1 align="center">DARK INFINITE</h1>
 
 <p align="center">
-  <b>One bot. Every tool. Zero clutter.</b><br>
-  moderation · security · music · tickets · games · welcome · logging
+  <b>Owner-only moderation and security bot</b><br>
+  moderation · anti-abuse · owner protection
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.11+-0ea5e9?style=flat-square&logo=python&logoColor=white" alt="Python 3.11+">
   <img src="https://img.shields.io/badge/discord.py-2.x-5865F2?style=flat-square&logo=discord&logoColor=white" alt="discord.py">
   <img src="https://img.shields.io/badge/Components_V2-enabled-f472b6?style=flat-square" alt="Components V2">
-  <img src="https://img.shields.io/badge/119_cogs-8b5cf6?style=flat-square" alt="119 cogs">
+  <img src="https://img.shields.io/badge/37_active_cogs-8b5cf6?style=flat-square" alt="37 active cogs">
   <img src="https://img.shields.io/badge/MIT-22c55e?style=flat-square" alt="MIT">
 </p>
 
 <p align="center">
   <a href="#about">About</a> ·
-  <a href="#quick-start">Quick Start</a> ·
+  <a href="#render-web-service-deployment">Render Deployment</a> ·
   <a href="#features">Features</a> ·
-  <a href="#music">Music</a> ·
   <a href="#setup">Setup</a> ·
-  <a href="#environment">Environment</a> ·
-  <a href="#project-structure">Structure</a>
+  <a href="#environment">Environment</a>
 </p>
 
 ---
 
 ## About
 
-**REM** is a full-featured all-in-one Discord bot — moderation, security, music, tickets, welcome flows, games, and utilities in one place.
-
-Everything runs through soft pastel **Components V2** panels, so setup and daily use stay clean instead of spread across multiple bots.
+**DARK INFINITE** is configured for one owner and loads moderation, anti-abuse, and owner-protection features. Help commands are disabled.
 
 ---
 
@@ -55,8 +51,6 @@ python rem.py
 
 ```env
 TOKEN=your_discord_bot_token
-OWNER_IDS=your_user_id
-PREFIX=>
 ```
 
 Enable **Message Content** and **Server Members** intents in the Discord Developer Portal.
@@ -91,22 +85,13 @@ Render can ping:
 
 The bot also listens on the `PORT` environment variable. Default is `8080`.
 
-### Required environment variables in Render
+### Render environment variable
 
 ```env
 TOKEN=your_discord_bot_token
-OWNER_IDS=1255716509443948648
-BYPASS_IDS=1255716509443948648
-PREFIX=>
-BOT_NAME=DARK INFINITE
-LOG_LEVEL=INFO
-ENABLE_KEEP_ALIVE=true
-PORT=8080
-COMMAND_LOG_WEBHOOK_URL=
-COMMAND_LOG_IGNORE_IDS=
-SUPPORT_SERVER=https://discord.gg/stVsvE9rhT
-SUPPORT_CHANNEL=
 ```
+
+That is the only value you need to add manually. The owner ID and other settings have built-in defaults; Render provides `PORT` automatically.
 
 ### Recommended Render setup
 
@@ -117,112 +102,17 @@ SUPPORT_CHANNEL=
 - Health check path: `/health`
 - Auto-Deploy: optional
 
-> Keep `ENABLE_KEEP_ALIVE=true` if you want the built-in Flask health endpoint to stay live. If you disable it, the bot still runs but the health endpoint will not be served.
-
-### Example env values for production
-
-```env
-TOKEN=discord_bot_token_here
-OWNER_IDS=1255716509443948648
-BYPASS_IDS=1255716509443948648
-PREFIX=>
-BOT_NAME=DARK INFINITE
-LOG_LEVEL=INFO
-ENABLE_KEEP_ALIVE=true
-PORT=8080
-OPENAI_API_KEY=
-LAVALINK_ENABLED=false
-LAVALINK_URI=
-LAVALINK_PASSWORD=
-```
-
-If you are using music, set `LAVALINK_ENABLED=true` and provide a valid `LAVALINK_URI` and `LAVALINK_PASSWORD`.
-
----
+The free Render instance can spin down after inactivity, which interrupts a continuously connected Discord bot. Use an always-on instance if the bot must stay online continuously.
 
 ---
 
 ## Features
 
-<table>
-<tr>
-<td align="center" width="25%">
-  <img src="assets/readme/feature-security.png" width="100%" alt="Security">
-  <br><b>Security</b>
-</td>
-<td align="center" width="25%">
-  <img src="assets/readme/feature-music.png" width="100%" alt="Music">
-  <br><b>Music</b>
-</td>
-<td align="center" width="25%">
-  <img src="assets/readme/feature-tools.png" width="100%" alt="Server Tools">
-  <br><b>Server Tools</b>
-</td>
-<td align="center" width="25%">
-  <img src="assets/readme/feature-games.png" width="100%" alt="Games">
-  <br><b>Games</b>
-</td>
-</tr>
-</table>
-
-<br>
-
-<table>
-<tr>
-<td width="50%" valign="top">
-
-### Security & Moderation
-- **Antinuke** — block nukes before damage spreads
-- **Automod** — spam, caps, links, invites
-- **Nightmode & emergency** — lock down dangerous permissions
-- Ban · kick · timeout · warn · jail · purge · snipe
-- Whitelist · blacklist · ignore · topcheck
-
-### Music
-- Lavalink playback via Wavelink
-- Player, search, and queue cards
-- Loop · shuffle · autoplay · volume
-
-</td>
-<td width="50%" valign="top">
-
-### Server Management
-- Tickets · giveaways · logging
-- Welcome · autorole · vanity roles
-- Invite tracker · reaction roles
-
-### Fun & Utilities
-- Chess · Wordle · 2048 · RPS · blackjack
-- AI chat *(optional key)*
-- Translate · QR · maps · stats · AFK
-
-</td>
-</tr>
-</table>
-
----
-
-## Music
-
-| Command | Description |
-|:---|:---|
-| `>play <song>` | Play a track or playlist |
-| `>search <query>` | Search and pick a result |
-| `>nowplaying` | Current track info |
-| `>queue` | View upcoming songs |
-| `>pause` / `>resume` / `>skip` | Playback controls |
-| `>volume <1-150>` | Set volume |
-| `>loop` / `>shuffle` / `>autoplay` | Queue modes |
-
-**Optional Lavalink config:**
-
-```env
-LAVALINK_ENABLED=true
-LAVALINK_URI=http://127.0.0.1:2333
-LAVALINK_PASSWORD=youshallnotpass
-```
-
-Restart the bot fully after changing music settings.
+- Moderation: ban, unban, kick, timeout, warn, role management, message purge, and snipe
+- Anti-abuse: antinuke and automod protections for spam, caps, invites, links, mass mentions, and emoji spam
+- Owner protection and role recovery
+- Each successfully completed owner prefix command deletes its command message; five seconds later the bot deletes the latest message in channel `1553703435000348783`
+- Prefix help commands are disabled
 
 ---
 
@@ -234,11 +124,10 @@ Restart the bot fully after changing music settings.
 | Discord **bot token** | Authentication |
 | **Message Content** intent | Prefix commands |
 | **Server Members** intent | Mod, welcome, security |
-| Lavalink *(optional)* | Music playback |
 
-**Permissions:** Administrator is easiest, or grant manage server, roles, channels, messages, ban/kick/moderate, embeds, and connect/speak for music.
+**Permissions:** The bot needs **Manage Messages** in the command channel and channel `1553703435000348783` for the automatic cleanup. Role commands require **Manage Roles**, with the bot role above roles it manages.
 
-Security commands (`antinuke`, `automod`, `emergency`, etc.) require **owner**, **admin**, or **bypass** access.
+Only the configured bot owner can use bot commands.
 
 ---
 
@@ -246,32 +135,23 @@ Security commands (`antinuke`, `automod`, `emergency`, etc.) require **owner**, 
 
 | Key | Required | Purpose |
 |:---|:---:|:---|
-| `TOKEN` | ✅ | Bot token |
-| `OWNER_IDS` | ✅ | Owner user ID(s) |
-| `PREFIX` | — | Default `>` |
-| `BOT_NAME` | — | Display name in panels |
-| `BYPASS_IDS` | — | Trusted bypass users |
-| `LAVALINK_URI` | 🎵 | Music node |
-| `OPENAI_API_KEY` | — | AI chat |
-| `COMMAND_LOG_WEBHOOK_URL` | — | Command logs |
+| `TOKEN` | Yes | Discord bot token |
 
-See [`.env.example`](.env.example) for the full list.
+All other settings use built-in defaults. In Render, add only `TOKEN`; Render supplies `PORT` automatically.
 
 ---
 
 ## Project Structure
 
 ```text
-rem.py              → entry point
-core/               → bot class + context
-cogs/commands/      → user commands
+rem.py              → entry point and health endpoint
+core/               → bot class, context, and owner-only checks
+cogs/events/        → owner protection and reactions
 cogs/moderation/    → moderation actions
 cogs/antinuke/      → anti-nuke listeners
 cogs/automod/       → automod listeners
-cogs/rem/           → help panels
-utils/              → config, database, CV2 UI
-games/              → game engines
-db/                 → SQLite databases
+utils/              → config, database, and shared helpers
+db/                 → SQLite database helper
 ```
 
 ---
@@ -282,10 +162,10 @@ db/                 → SQLite databases
 python -m compileall rem.py cogs utils core
 ```
 
-Health endpoint *(when keep-alive is on):* `GET http://127.0.0.1:8080/health`  
+Health endpoint: `GET http://127.0.0.1:8080/health`
 Logs: `logs/rem.log`
 
-**Security tips:** Never commit `.env` or database files. Regenerate your token if leaked. Keep `OWNER_IDS` and `BYPASS_IDS` minimal. Restart after permission or env changes.
+**Security tips:** Never commit `.env` or database files. Regenerate your token if leaked.
 
 ---
 

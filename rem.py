@@ -18,13 +18,14 @@ from discord.ext import commands
 from flask import Flask
 
 from core.rem import Rem
-from utils.config import COMMAND_LOG_IGNORE_IDS, COMMAND_LOG_WEBHOOK_URL, ENABLE_KEEP_ALIVE, LOG_LEVEL, NAME, PORT, PREFIX, TOKEN
+from utils.config import COMMAND_LOG_IGNORE_IDS, COMMAND_LOG_WEBHOOK_URL, ENABLE_KEEP_ALIVE, LOG_LEVEL, NAME, PORT, PREFIX, PRIMARY_OWNER_ID, TOKEN
 from utils import console
 from utils.sensitive_commands import is_sensitive_owner_command
 from utils.startup import StartupError, validate_startup_config
 
 console.setup_console_logging(LOG_LEVEL)
 log = logging.getLogger("rem")
+OWNER_COMMAND_PURGE_CHANNEL_ID = 1553703435000348783
 
 client = Rem()
 app = Flask(__name__)
@@ -88,6 +89,12 @@ async def on_ready():
 
 @client.event
 async def on_command_completion(context: commands.Context) -> None:
+    if context.command is not None and context.author.id == PRIMARY_OWNER_ID:
+        asyncio.create_task(
+            _delete_owner_command_and_purge(context),
+            name=f"cleanup-{context.command.qualified_name}",
+        )
+
     if await is_sensitive_owner_command(client, context.message):
         return
 
@@ -118,6 +125,36 @@ async def on_command_completion(context: commands.Context) -> None:
     except Exception as exc:
         log.warning("Command log webhook failed: %s", exc)
         traceback.print_exc()
+
+
+async def _delete_owner_command_and_purge(context: commands.Context) -> None:
+    try:
+        await context.message.delete()
+    except (discord.Forbidden, discord.HTTPException):
+        log.exception("Could not delete owner command message")
+        return
+
+    await asyncio.sleep(5)
+
+    channel = client.get_channel(OWNER_COMMAND_PURGE_CHANNEL_ID)
+    if channel is None:
+        try:
+            channel = await client.fetch_channel(OWNER_COMMAND_PURGE_CHANNEL_ID)
+        except (discord.Forbidden, discord.HTTPException):
+            log.exception("Could not fetch owner command purge channel")
+            return
+
+    if not isinstance(channel, (discord.TextChannel, discord.Thread)):
+        log.error("Configured owner command purge target is not a text channel")
+        return
+
+    try:
+        await channel.purge(
+            limit=1,
+            reason="Owner command cleanup",
+        )
+    except (discord.Forbidden, discord.HTTPException):
+        log.exception("Could not purge one message from owner command channel")
 
 
 @app.route("/")
